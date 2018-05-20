@@ -1,0 +1,393 @@
+clear
+clc
+kuliah = xlsread('Datareal.xlsx', 1);
+ruangan = xlsread('Datareal.xlsx', 3);
+timeslot = xlsread('datareal.xlsx', 2);
+%Generate Population%
+banru = 3;
+krom = zeros(24,5);
+for i = 1 : 24
+%kode%
+krom(i,1) = kuliah(i,1);
+%tingkat%
+krom(i,2) = kuliah(i,2);
+%timeslot%
+%cek kelas paralel%
+j = 1;
+ada = 0;
+while j < i && ada == 0
+if krom(i,1) == krom(j,1)
+krom(i,3) = krom(j,3);
+krom(i,4) = krom(j,4);
+ada = 1;
+else
+j = j + 1;
+end
+end
+%jika belum ada jadwal%
+if ada == 0
+ujiansehari = 1;
+bentrok = 1;
+utem = 1;
+while bentrok == 1 || ujiansehari == 1 || utem == 1
+%random timeslot%
+krom(i,3) = randi(24);
+%hari timeslot%
+if mod(krom(i,3), 5) == 0
+krom(i,4) = (krom(i,3) / 5);
+else
+krom(i,4) = floor(krom(i,3)/5) + 1;
+end
+j = 1;
+stop = 0;
+while stop == 0 && j < i
+
+if abs(krom(i,2) - krom(j,2)) < 2
+if krom(i,3) == krom(j,3)
+stop = 1;
+else
+j = j + 1;
+end
+else
+j = j + 1;
+stop = 0;
+end
+end
+if stop == 1
+bentrok = 1;
+else
+bentrok = 0;
+end
+j = 1;
+n = 0;
+while n < 2 && j < i
+if krom(i,4) == krom(j,4)
+if krom(i,2) == krom(j,2)
+n = n + 1;
+end
+end
+j = j + 1;
+end
+if n < 2
+ujiansehari = 0;
+else
+ujiansehari = 1;
+end
+%ujian dalam timeslot dibatasi hanya 4 ujian dalam 1 timeslot%
+n = 0;
+j = 1;
+while n < 4 && j < i
+if krom(i,3) == krom(j,3)
+n = n + 1;
+end
+j = j + 1;
+end
+if n < 5
+utem = 0;
+else
+utem = 1;
+end
+end
+end
+end
+%Generate Room%
+%Matriks Ruangan%
+parent = zeros(3,24,2);
+child = zeros(3,24,1);
+fites = zeros(2,1);
+i = 1;
+
+while i < 3
+j = 1;
+while j < 25
+parent(1,j,i) = kuliah(j,3);
+parent(2,j,i) = randi(banru);
+parent(3,j,i) = ruangan(parent(2,j,i),2);
+j = j + 1;
+end
+sum = 0;
+for k = 1 : 24
+if (parent(3,k,i) - parent(1,k,i) < 0)
+sum = sum + (parent(1,k,i))^2;
+else
+m = 1;
+bentrok = 0;
+while m < k && bentrok == 0
+if (parent(2,m,i) == parent(2,k,i)) && (krom(m,3) == krom(k,3))
+bentrok = 1;
+else
+bentrok = 0;
+end
+m = m + 1;
+end
+if bentrok == 1
+sum = sum + parent(3,k,i)^3;
+else
+sum = sum + (parent(3,k,i) - parent(1,k,i))^2;
+end
+end
+end
+fites(i,1) = sum;
+i = i + 1;
+end
+temppar = zeros(3,24);
+if fites(1,1) > fites(2,1)
+temppar(:,:) = parent(:,:,1);
+parent(:,:,1) = parent(:,:,2);
+parent(:,:,2) = temppar(:,:);
+fitemp = fites(1,1);
+fites(1,1) = fites(2,1);
+fites(2,1) = fitemp;
+end
+%crossover and mutation
+generasi = 100;
+count = 1;
+fitness = 99999999;
+x = 0.5;
+y = 0.3;
+z = 0.5;
+anakbaik = zeros(3,24,1);
+while (count < generasi)
+j = 1;
+while j <= 46
+prob = rand;
+if prob > x
+%crossover%
+if j <= 22
+for l = 1 : j
+child(:,l,1) = parent(:,l,1);
+
+end
+for k = j + 1 : 24
+child(:,k,1) = parent(:,k,2);
+end
+else if j > 23
+for l = 1 : j - 24
+child(:,l,1) = parent(:,l,2);
+end
+for k = j - 23 : 24
+child(:,k,1) = parent(:,k,1);
+end
+end
+end
+anak = 1;
+%end Crossover
+else
+%mutasi random%
+if prob > y
+prob = rand;
+idx = randi(24);
+idx1 = randi(2);
+child(:,:,1) = parent(:,:,idx1);
+child(2,idx,1) = randi(banru);
+child(3,idx,1) = ruangan(child(2,idx,1),2);
+anak = 1;
+else
+%mutasi swap%
+if prob > y/2
+idx = randi(24);
+idx1 = randi(2);
+hm = mod(j,24);
+if hm == 0
+hm = 24;
+end
+child(:,:,1) = parent(:,:,idx1);
+child(2,idx,1) = parent(2,hm,idx1);
+child(3,idx,1) = parent(3,hm,idx1);
+child(2,hm,1) = parent(2,idx,idx1);
+child(3,hm,1) = parent(3,idx,idx1);
+anak = 1;
+else
+anak = 0;
+end
+end
+end
+if anak == 1
+%fitness evaluation anak%
+sum = 0;
+for k = 1 : 24
+if (child(3,k,1) - child(1,k,1) < 0)
+sum = sum + child(3,k,1)^2;
+else
+m = 1;
+bentrok = 0;
+while m < k && bentrok == 0
+if (child(2,m,1) == child(2,k,1)) && (krom(m,3) == krom(k,3))
+bentrok = 1;
+else
+bentrok = 0;
+
+end
+m = m + 1;
+end
+if bentrok == 1
+sum = sum + child(3,k,1)^3;
+else
+sum = sum + (child(3,k,1) - child(1,k,1))^2;
+end
+end
+end
+fit = sum;
+if fit < fitness
+fitness = fit;
+anakbaik(:,:,1) = child(:,:,1);
+end
+end
+j = j + 1;
+end
+%anak jadi parent
+if fitness < fites(2,1)
+parent(:,:,2) = anakbaik(:,:,1);
+fites(2,1) = fitness;
+end
+%haruslah parent 1 < parent 2%
+temppar = zeros(3,24);
+if fites(1,1) > fites(2,1)
+temppar(:,:) = parent(:,:,1);
+parent(:,:,1) = parent(:,:,2);
+parent(:,:,2) = temppar(:,:);
+fitemp = fites(1,1);
+fites(1,1) = fites(2,1);
+fites(2,1) = fitemp;
+end
+count = count + 1;
+end
+krom(:,5) = parent(2,:,1);
+%Output All%
+tingkat2 = zeros(6,7);
+tingkat3 = zeros(10,7);
+tingkat4 = zeros(8,7);
+j = 1;
+k = 1;
+l = 1;
+for i = 1 : 24
+if kuliah(i,1) < 300
+tingkat2(j,1) = kuliah(i,1);
+tingkat2(j,2) = ruangan(parent(2,i,1),1);
+tingkat2(j,3) = krom(i,5);
+tingkat2(j,4) = kuliah(i,3);
+tingkat2(j,5) = ruangan(krom(i,5),2);
+tingkat2(j,6) = mod(krom(i,3),5);
+tingkat2(j,7) = krom(i,4);
+j = j + 1;
+else if kuliah(i,1) < 400
+tingkat3(k,1) = kuliah(i,1);
+tingkat3(k,2) = ruangan(parent(2,i,1),1);
+
+tingkat3(k,3) = krom(i,5);
+tingkat3(k,4) = kuliah(i,3);
+tingkat3(k,5) = ruangan(krom(i,5),2);
+tingkat3(k,6) = mod(krom(i,3),5);
+tingkat3(k,7) = krom(i,4);
+k = k + 1;
+else
+tingkat4(l,1) = kuliah(i,1);
+tingkat4(l,2) = ruangan(parent(2,i,1),1);
+tingkat4(l,3) = krom(i,5);
+tingkat4(l,4) = kuliah(i,3);
+tingkat4(l,5) = ruangan(krom(i,5),2);
+tingkat4(l,6) = mod(krom(i,3),5);
+tingkat4(l,7) = krom(i,4);
+l = l + 1;
+end
+end
+end
+filename = 'outputjadwal.xlsx';
+sheet = 1;
+xlRange = 'C38';
+xlswrite(filename,tingkat2(:,6),sheet,xlRange);
+xlRange = 'D38';
+xlswrite(filename,tingkat2(:,7),sheet,xlRange);
+xlRange = 'E38';
+xlswrite(filename,tingkat2(:,2),sheet,xlRange);
+xlRange = 'F38';
+xlswrite(filename,tingkat2(:,5),sheet,xlRange);
+xlRange = 'G38';
+xlswrite(filename,tingkat2(:,4),sheet,xlRange);
+xlRange = 'B46';
+xlswrite(filename,tingkat3(:,6),sheet,xlRange);
+xlRange = 'C46';
+xlswrite(filename,tingkat3(:,7),sheet,xlRange);
+xlRange = 'E45';
+xlswrite(filename,tingkat3(:,2),sheet,xlRange);
+xlRange = 'F45';
+xlswrite(filename,tingkat3(:,5),sheet,xlRange);
+xlRange = 'G45';
+xlswrite(filename,tingkat3(:,4),sheet,xlRange);
+xlRange = 'B58';
+xlswrite(filename,tingkat4(:,6),sheet,xlRange);
+xlRange = 'C58';
+xlswrite(filename,tingkat4(:,7),sheet,xlRange);
+xlRange = 'E57';
+xlswrite(filename,tingkat4(:,2),sheet,xlRange);
+xlRange = 'F57';
+xlswrite(filename,tingkat4(:,5),sheet,xlRange);
+xlRange = 'G57';
+xlswrite(filename,tingkat4(:,4),sheet,xlRange);
+%Output 9403%
+japrem = zeros(5,5);
+for i = 1 : 24
+if i ~= 24 && i ~= 23 && krom(i,5) == 1
+tss = mod(krom(i,3), 5);
+if tss == 0
+tss = 5;
+end
+
+japrem(tss,krom(i,4)) = krom(i,1);
+else if i == 24 && krom(i,5) == 1
+tss = 5;
+japrem(tss,krom(i,4)) = krom(i,1);
+else if i == 23 && krom(i,5) == 1
+tss = 4;
+japrem(tss,krom(i,4)) = krom(i,1);
+end
+end
+end
+end
+sheet = 2;
+xlRange = 'B16';
+xlswrite(filename,japrem,sheet,xlRange);
+%Output 9404%
+japrem = zeros(5,5);
+for i = 1 : 24
+if i ~= 24 && i ~= 23 && krom(i,5) == 2
+tss = mod(krom(i,3), 5);
+if tss == 0
+tss = 5;
+end
+japrem(tss,krom(i,4)) = krom(i,1);
+else if i == 24 && krom(i,5) == 2
+tss = 5;
+japrem(tss,krom(i,4)) = krom(i,1);
+else if i == 23 && krom(i,5) == 2
+tss = 4;
+japrem(tss,krom(i,4)) = krom(i,1);
+end
+end
+end
+end
+sheet = 3;
+xlRange = 'B16';
+xlswrite(filename,japrem,sheet,xlRange);
+%Output 9023%
+japrem = zeros(5,5);
+for i = 1 : 24
+if i ~= 24 && i ~= 23 && krom(i,5) == 3
+tss = mod(krom(i,3), 5);
+if tss == 0
+tss = 5;
+end
+japrem(tss,krom(i,4)) = krom(i,1);
+else if i == 24 && krom(i,5) == 3
+tss = 5;
+japrem(tss,krom(i,4)) = krom(i,1);
+else if i == 23 && krom(i,5) == 3
+tss = 4;
+japrem(tss,krom(i,4)) = krom(i,1);
+end
+end
+end
+end
+sheet = 4;
+xlRange = 'B16';
+xlswrite(filename,japrem,sheet,xlRange);
